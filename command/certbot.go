@@ -8,33 +8,40 @@ import (
 // This just acts as a proxy to the certbot project.
 // The resulting certificates will then be handed off to
 // logic that will interact with AWS iam certificate manager.
-// TODO: Write test
 // TODO: Detect certbot installed
 // TODO: Setup proxy logic
 // TODO: Upload resulting cert to s3 for backup (Optional)
 // TODO: Nice to have would be a DNS host name validator
+const certbotCommand = "certbot certonly"
+
 type CertbotCommand struct {
-	CertbotFlags []certbotFlag
+	CertbotFlags certbotFlags
 
 	Meta
 }
 
 // The list of commands and flags that are proxied to the certbot
 // command is limited to those that support the route53 scenario.
+type certbotFlags []certbotFlag
 type certbotFlag struct {
 	Flag string
-	Expl string
+	Val  string
+}
+
+func (cf certbotFlags) String() string {
+	var f []string
+	var s string
+	for _, i := range cf {
+		s = i.Flag
+		if i.Val != "" {
+			s = fmt.Sprintf("%s %s", s, i.Val)
+		}
+		f = append(f, s)
+	}
+	return strings.Join(f, " ")
 }
 
 type domains []string
-
-// var certbotCommand = "certonly"
-var domainsFlag domains
-var emailFlag string
-
-func (c *CertbotCommand) Help() string {
-	return "implement me"
-}
 
 func (d *domains) String() string {
 	return fmt.Sprint(*d)
@@ -45,22 +52,36 @@ func (d *domains) Set(v string) error {
 	return nil
 }
 
+func (c *CertbotCommand) Help() string {
+	return "implement me"
+}
+
 func (c *CertbotCommand) Run(args []string) int {
+	var (
+		domainsFlag domains
+		emailFlag   string
+		nFlag       bool
+		tosFlag     bool
+		r53Flag     bool
+	)
+
 	f := c.Meta.flagSet("CertbotCommand")
 	f.Var(&domainsFlag, "d", "Comma-separated list of domains to obtain a certificate for")
 	f.StringVar(&emailFlag, "email", "", "Email address for important account notifications")
+	f.BoolVar(&nFlag, "n", false, "Run non-interactively")
+	f.BoolVar(&tosFlag, "agree-tos", false, "Agree to the ACME server's Subscriber Agreement")
+	f.BoolVar(&r53Flag, "dns-route53", false, "Use route53 for the challenge")
 	if err := f.Parse(args); err != nil {
 		return 1
 	}
 
 	// These will be the default flags that will be proxied to the certbot cli.
-	c.setCertbotFlag("-n", "Run non-interactively")
-	c.setCertbotFlag("--agree-tos", "Agree to the ACME server's Subscriber Agreement")
-	c.setCertbotFlag("--dns-route53", "Use route53 for the challenge")
-	c.setCertbotFlag("-email", emailFlag)
+	c.setCertbotFlag("-n", nFlag)
+	c.setCertbotFlag("--dns-route53", r53Flag)
+	c.setCertbotFlag("--agree-tos", tosFlag)
+	c.setCertbotFlag("--email", emailFlag)
 	c.setCertbotFlag("-d", domainsFlag)
 
-	fmt.Printf("%v", c.CertbotFlags)
 	return 0
 }
 
@@ -68,8 +89,8 @@ func (c *CertbotCommand) Synopsis() string {
 	return `This tool just acts as a proxy to the certbot project. The resulting artifacts (certificates) will be used to update AWS Certificate Manager.`
 }
 
-func (c *CertbotCommand) CommandString(f []certbotFlag) string {
-	return ""
+func (c *CertbotCommand) CommandString() string {
+	return fmt.Sprintf("%s %s", certbotCommand, c.CertbotFlags.String())
 }
 
 func (c *CertbotCommand) setCertbotFlag(k string, v interface{}) {
@@ -80,7 +101,13 @@ func (c *CertbotCommand) setCertbotFlag(k string, v interface{}) {
 		if vt == "" {
 			return
 		}
-		cf = certbotFlag{fmt.Sprintf("%s %s", k, vt), ""}
+		cf = certbotFlag{k, vt}
+	case bool:
+		vt := v.(bool)
+		if !vt {
+			return
+		}
+		cf = certbotFlag{k, ""}
 	case domains:
 		vt := v.(domains)
 		if len(vt) == 0 {
