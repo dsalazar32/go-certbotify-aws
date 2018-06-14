@@ -1,8 +1,8 @@
 package command
 
 import (
-	"github.com/mitchellh/cli"
 	"flag"
+	"github.com/mitchellh/cli"
 )
 
 type Meta struct {
