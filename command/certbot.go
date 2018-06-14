@@ -2,17 +2,18 @@ package command
 
 import (
 	"fmt"
+	"github.com/dsalazar32/go-certbotify-aws/command/utils"
 	"strings"
 )
 
 // This just acts as a proxy to the certbot project.
 // The resulting certificates will then be handed off to
 // logic that will interact with AWS iam certificate manager.
-// TODO: Detect certbot installed
+// TODO: Build go package in docker container
 // TODO: Setup proxy logic
 // TODO: Upload resulting cert to s3 for backup (Optional)
 // TODO: Nice to have would be a DNS host name validator
-const certbotCommand = "certbot certonly"
+var certbotCommand = []string{"certbot", "certonly"}
 
 type CertbotCommand struct {
 	CertbotFlags certbotFlags
@@ -57,6 +58,16 @@ func (c *CertbotCommand) Help() string {
 }
 
 func (c *CertbotCommand) Run(args []string) int {
+	cmd := utils.Commander(".")
+
+	// Check if Certbot is even installed before proceeding.
+	out, err := cmd(fmt.Sprintf("type %s", certbotCommand[0]), true)
+	if err != nil {
+		c.Ui.Error("Certbot is not installed")
+		return 1
+	}
+	c.Ui.Info(fmt.Sprintf("%s", out))
+
 	var (
 		domainsFlag domains
 		emailFlag   string
@@ -90,7 +101,7 @@ func (c *CertbotCommand) Synopsis() string {
 }
 
 func (c *CertbotCommand) CommandString() string {
-	return fmt.Sprintf("%s %s", certbotCommand, c.CertbotFlags.String())
+	return fmt.Sprintf("%s %s", strings.Join(certbotCommand, " "), c.CertbotFlags.String())
 }
 
 func (c *CertbotCommand) setCertbotFlag(k string, v interface{}) {

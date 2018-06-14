@@ -2,14 +2,14 @@ package main
 
 import (
 	"github.com/mitchellh/cli"
-	"os"
 	"log"
+	"os"
 )
 
 const (
-	ErrPrefix = "e: "
-	OutPrefix = "o: "
-	InfPrefix = "i: "
+	OutPrefix = "[Go-Certbot] "
+	InfPrefix = "[Go-Certbot Info] "
+	ErrPrefix = "[Go-Certbot Error] "
 )
 
 var Ui cli.Ui
