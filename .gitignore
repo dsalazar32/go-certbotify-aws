@@ -14,3 +14,4 @@
 # IDE and builds
 .idea
 go-certbotify-aws
+vendor
