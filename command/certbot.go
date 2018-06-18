@@ -9,7 +9,6 @@ import (
 // This just acts as a proxy to the certbot project.
 // The resulting certificates will then be handed off to
 // logic that will interact with AWS iam certificate manager.
-// TODO: Build go package in docker container
 // TODO: Setup proxy logic
 // TODO: Upload resulting cert to s3 for backup (Optional)
 // TODO: Nice to have would be a DNS host name validator
