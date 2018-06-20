@@ -3,19 +3,21 @@ package command
 import (
 	"fmt"
 	"github.com/dsalazar32/go-certbotify-aws/command/utils"
+	"os"
 	"strings"
 )
 
 // This just acts as a proxy to the certbot project.
 // The resulting certificates will then be handed off to
 // logic that will interact with AWS iam certificate manager.
-// TODO: Setup proxy logic
+// TODO: See if it's possible to get io.Writer out of UI
 // TODO: Upload resulting cert to s3 for backup (Optional)
 // TODO: Nice to have would be a DNS host name validator
-var certbotCommand = []string{"certbot", "certonly"}
-
 type CertbotCommand struct {
-	CertbotFlags certbotFlags
+	CertbotFlags    certbotFlags
+	CertbotDefaults []string
+	Command         []string
+	TestMode        bool
 
 	Meta
 }
@@ -57,15 +59,29 @@ func (c *CertbotCommand) Help() string {
 }
 
 func (c *CertbotCommand) Run(args []string) int {
-	cmd := utils.Commander(".")
 
-	// Check if Certbot is even installed before proceeding.
-	out, err := cmd(fmt.Sprintf("type %s", certbotCommand[0]), true)
-	if err != nil {
-		c.Ui.Error("Certbot is not installed")
-		return 1
+	// Collect AWS Credentials if set via environmental variables.
+	// Ideally we would like to gain access to AWS resources via
+	// IAM policies...
+	var awsCred []string
+	awsEnvs := []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"}
+	for _, env := range awsEnvs {
+		v, ok := os.LookupEnv(env)
+		if ok {
+			awsCred = append(awsCred, env, v)
+		}
 	}
-	c.Ui.Info(fmt.Sprintf("%s", out))
+
+	cmd := utils.Commander(".", awsCred...)
+	if !c.TestMode {
+		// Check if Certbot is even installed before proceeding.
+		out, err := cmd(fmt.Sprintf("type %s", c.Command[0]), true)
+		if err != nil {
+			c.Ui.Error("Certbot is not installed")
+			return 1
+		}
+		c.Ui.Info(fmt.Sprintf("%s", out))
+	}
 
 	var (
 		domainsFlag domains
@@ -81,7 +97,7 @@ func (c *CertbotCommand) Run(args []string) int {
 	f.BoolVar(&nFlag, "n", false, "Run non-interactively")
 	f.BoolVar(&tosFlag, "agree-tos", false, "Agree to the ACME server's Subscriber Agreement")
 	f.BoolVar(&r53Flag, "dns-route53", false, "Use route53 for the challenge")
-	if err := f.Parse(args); err != nil {
+	if err := f.Parse(append(args, c.CertbotDefaults...)); err != nil {
 		return 1
 	}
 
@@ -92,6 +108,15 @@ func (c *CertbotCommand) Run(args []string) int {
 	c.setCertbotFlag("--email", emailFlag)
 	c.setCertbotFlag("-d", domainsFlag)
 
+	if !c.TestMode {
+		out, err := cmd(c.CommandString(), true)
+		if err != nil {
+			c.Ui.Error(fmt.Sprintf("execution error: %s, %v", c.CommandString(), err))
+			return 1
+		}
+		c.Ui.Info(fmt.Sprintf("%s", out))
+	}
+
 	return 0
 }
 
@@ -100,7 +125,7 @@ func (c *CertbotCommand) Synopsis() string {
 }
 
 func (c *CertbotCommand) CommandString() string {
-	return fmt.Sprintf("%s %s", strings.Join(certbotCommand, " "), c.CertbotFlags.String())
+	return fmt.Sprintf("%s %s", strings.Join(c.Command, " "), c.CertbotFlags.String())
 }
 
 func (c *CertbotCommand) setCertbotFlag(k string, v interface{}) {

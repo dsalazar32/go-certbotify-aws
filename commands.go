@@ -15,7 +15,13 @@ func initCommands() map[string]cli.CommandFactory {
 	Commands = map[string]cli.CommandFactory{
 		"certbot": func() (cli.Command, error) {
 			return &command.CertbotCommand{
-				Meta: meta,
+				Meta:    meta,
+				Command: []string{"certbot", "certonly"},
+				CertbotDefaults: []string{
+					"-n",
+					"-agree-tos",
+					"-dns-route53",
+				},
 			}, nil
 		},
 	}

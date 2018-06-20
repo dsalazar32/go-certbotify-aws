@@ -9,6 +9,7 @@ func Commander(cwd string, eVars ...string) func(c string, output bool) ([]byte,
 	cmd := func(c string, output bool) ([]byte, error) {
 		command := exec.Command("sh", "-c", c)
 		command.Env = append(os.Environ(), eVars...)
+		command.Stderr = os.Stderr
 		command.Dir = cwd
 		if output == true {
 			return command.Output()

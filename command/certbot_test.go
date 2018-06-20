@@ -14,9 +14,6 @@ func TestCertbotCommand_CommandString(t *testing.T) {
 	tests := []sampleInOut{
 		{
 			[]string{
-				"-n",
-				"-dns-route53",
-				"-agree-tos",
 				"-email",
 				"me@dsalazar.io",
 				"-d",
@@ -28,9 +25,6 @@ func TestCertbotCommand_CommandString(t *testing.T) {
 		},
 		{
 			[]string{
-				"-n",
-				"-dns-route53",
-				"-agree-tos",
 				"-d",
 				"dsalazar.io",
 				"-d",
@@ -40,9 +34,6 @@ func TestCertbotCommand_CommandString(t *testing.T) {
 		},
 		{
 			[]string{
-				"-n",
-				"-dns-route53",
-				"-agree-tos",
 				"-email",
 				"me@dsalazar.io",
 			},
@@ -50,20 +41,23 @@ func TestCertbotCommand_CommandString(t *testing.T) {
 		},
 		{
 			[]string{
-				"-dns-route53",
-				"-agree-tos",
 				"-email",
 				"me@dsalazar.io",
 			},
-			"certbot certonly --dns-route53 --agree-tos --email me@dsalazar.io",
+			"certbot certonly -n --dns-route53 --agree-tos --email me@dsalazar.io",
 		},
 	}
 
 	for _, test := range tests {
 		ui := &cli.MockUi{}
 		c := &CertbotCommand{
-			Meta: Meta{
-				Ui: ui,
+			Meta:     Meta{Ui: ui},
+			Command:  []string{"certbot", "certonly"},
+			TestMode: true,
+			CertbotDefaults: []string{
+				"-n",
+				"-agree-tos",
+				"-dns-route53",
 			},
 		}
 		if code := c.Run(test.In); code != 0 {
