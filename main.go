@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	OutPrefix = "[Go-Certbot] "
-	InfPrefix = "[Go-Certbot Info] "
-	ErrPrefix = "[Go-Certbot Error] "
+	OutPrefix = "[go-gen-ssl] "
+	InfPrefix = "[go-gen-ssl info] "
+	ErrPrefix = "[go-gen-ssl error] "
 )
 
 var Ui cli.Ui
@@ -24,7 +24,7 @@ func init() {
 }
 
 func main() {
-	c := cli.NewCLI("go-certbotify-aws", "0.0.1")
+	c := cli.NewCLI("go-gen-ssl", "0.0.1")
 	c.Args = os.Args[1:]
 	c.Commands = initCommands()
 

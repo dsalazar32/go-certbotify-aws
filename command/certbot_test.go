@@ -3,6 +3,7 @@ package command
 import (
 	"github.com/mitchellh/cli"
 	"testing"
+	"github.com/dsalazar32/go-gen-ssl/command/certbot"
 )
 
 type sampleInOut struct {
@@ -51,22 +52,27 @@ func TestCertbotCommand_CommandString(t *testing.T) {
 	for _, test := range tests {
 		ui := &cli.MockUi{}
 		c := &CertbotCommand{
-			Meta:     Meta{Ui: ui},
-			Command:  []string{"certbot", "certonly"},
-			TestMode: true,
-			CertbotDefaults: []string{
-				"-n",
-				"-agree-tos",
-				"-dns-route53",
-			},
+			Certbot: *newCertbotClient(),
+			Meta:    Meta{Ui: ui},
 		}
 		if code := c.Run(test.In); code != 0 {
 			t.Fatalf("bad: %d\n\n%s", code, ui.ErrorWriter.String())
 		}
 
-		expect, got := test.Out, c.CommandString()
+		expect, got := test.Out, c.Certbot.CommandString()
 		if expect != got {
 			t.Fatalf("assertion failed\n expected: %s\n got: %s\n", expect, got)
 		}
+	}
+}
+
+func newCertbotClient() *certbot.Certbot {
+	return &certbot.Certbot{
+		CertbotFlags: certbot.CertbotFlags{
+			{"-n", ""},
+			{"--dns-route53", ""},
+			{"--agree-tos", ""},
+		},
+		Test: true,
 	}
 }

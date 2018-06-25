@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/dsalazar32/go-certbotify-aws/command"
+	"github.com/dsalazar32/go-gen-ssl/command"
 	"github.com/mitchellh/cli"
+	"github.com/dsalazar32/go-gen-ssl/command/certbot"
 )
 
 var Commands map[string]cli.CommandFactory
@@ -12,16 +13,21 @@ func initCommands() map[string]cli.CommandFactory {
 		Ui: Ui,
 	}
 
+	cbot := &certbot.Certbot{
+		CertbotFlags: certbot.CertbotFlags{
+			{"-n", ""},
+			{"--dns-route53", ""},
+			{"--agree-tos", ""},
+		},
+	}
+
+	// TODO: default just executes certbot
+	// TODO: s3 sends output to s3 bucket
 	Commands = map[string]cli.CommandFactory{
-		"certbot": func() (cli.Command, error) {
+		"local": func() (cli.Command, error) {
 			return &command.CertbotCommand{
 				Meta:    meta,
-				Command: []string{"certbot", "certonly"},
-				CertbotDefaults: []string{
-					"-n",
-					"-agree-tos",
-					"-dns-route53",
-				},
+				Certbot: *cbot,
 			}, nil
 		},
 	}
