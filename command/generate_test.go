@@ -1,9 +1,9 @@
 package command
 
 import (
+	"github.com/dsalazar32/go-gen-ssl/command/certbot"
 	"github.com/mitchellh/cli"
 	"testing"
-	"github.com/dsalazar32/go-gen-ssl/command/certbot"
 )
 
 type sampleInOut struct {
@@ -51,7 +51,7 @@ func TestCertbotCommand_CommandString(t *testing.T) {
 
 	for _, test := range tests {
 		ui := &cli.MockUi{}
-		c := &CertbotCommand{
+		c := &SSLGenerator{
 			Certbot: *newCertbotClient(),
 			Meta:    Meta{Ui: ui},
 		}

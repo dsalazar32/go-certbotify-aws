@@ -8,6 +8,43 @@
   revision = "1fca145dffbcaa8fe914309b1ec0cfc67500fe61"
 
 [[projects]]
+  name = "github.com/aws/aws-sdk-go"
+  packages = [
+    "aws",
+    "aws/awserr",
+    "aws/awsutil",
+    "aws/client",
+    "aws/client/metadata",
+    "aws/corehandlers",
+    "aws/credentials",
+    "aws/credentials/ec2rolecreds",
+    "aws/credentials/endpointcreds",
+    "aws/credentials/stscreds",
+    "aws/csm",
+    "aws/defaults",
+    "aws/ec2metadata",
+    "aws/endpoints",
+    "aws/request",
+    "aws/session",
+    "aws/signer/v4",
+    "internal/sdkio",
+    "internal/sdkrand",
+    "internal/shareddefaults",
+    "private/protocol",
+    "private/protocol/eventstream",
+    "private/protocol/eventstream/eventstreamapi",
+    "private/protocol/query",
+    "private/protocol/query/queryutil",
+    "private/protocol/rest",
+    "private/protocol/restxml",
+    "private/protocol/xml/xmlutil",
+    "service/s3",
+    "service/sts"
+  ]
+  revision = "852052a10992d92f68b9a60862a3312292524903"
+  version = "v1.14.17"
+
+[[projects]]
   name = "github.com/bgentry/speakeasy"
   packages = ["."]
   revision = "4aabc24848ce5fd31929f7d1e4ea74d3709c14cd"
@@ -20,6 +57,12 @@
   version = "v1.7.0"
 
 [[projects]]
+  name = "github.com/go-ini/ini"
+  packages = ["."]
+  revision = "06f5f3d67269ccec1fe5fe4134ba6e982984f7f5"
+  version = "v1.37.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/hashicorp/errwrap"
   packages = ["."]
@@ -30,6 +73,11 @@
   name = "github.com/hashicorp/go-multierror"
   packages = ["."]
   revision = "b7773ae218740a7be65057fc60b366a49b538a44"
+
+[[projects]]
+  name = "github.com/jmespath/go-jmespath"
+  packages = ["."]
+  revision = "0b12d6b5"
 
 [[projects]]
   name = "github.com/mattn/go-colorable"
@@ -69,6 +117,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "32a9e6bff61bd1a4d5e722e7fdde6dede1cccbcd9b45f987a94039b190947147"
+  inputs-digest = "df1f45f5d73b010d8ae80c9b090ad4bbeb8643d21ed4b80e9bff9d1b15f28616"
   solver-name = "gps-cdcl"
   solver-version = 1

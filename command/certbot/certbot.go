@@ -2,12 +2,15 @@ package certbot
 
 import (
 	"fmt"
-	"strings"
-	"os"
 	"github.com/dsalazar32/go-gen-ssl/command/utils"
+	"os"
+	"strings"
 )
 
-const CertbotCmdPrefix = "certbot certonly"
+const (
+	CertbotCmdPrefix = "certbot certonly"
+	// OutfilePath      = "/etc/letsencrypt/archive"
+)
 
 type Certbot struct {
 	CertbotFlags CertbotFlags
@@ -103,4 +106,3 @@ func (c *Certbot) SetCertbotFlag(k string, v interface{}) {
 	}
 	c.CertbotFlags = append(c.CertbotFlags, cf)
 }
-
