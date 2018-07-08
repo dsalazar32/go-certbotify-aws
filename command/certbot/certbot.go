@@ -9,7 +9,7 @@ import (
 
 const (
 	CertbotCmdPrefix = "certbot certonly"
-	// OutfilePath      = "/etc/letsencrypt/archive"
+	OutfilePath      = "/etc/letsencrypt/archive"
 )
 
 type Certbot struct {

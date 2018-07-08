@@ -6,16 +6,18 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/dsalazar32/go-gen-ssl/command/certbot"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 // This just acts as a proxy to the certbot project.
 // The resulting certificates will then be handed off to
 // logic that will interact with AWS iam certificate manager.
 // TODO: Have post processing of generated cert be flag driven.
-// TODO: See if it's possible to get io.Writer out of UI
-// TODO: Upload resulting cert to s3 for backup (Optional)
 // TODO: Nice to have would be a DNS host name validator
 type SSLGenerator struct {
 	Certbot certbot.Certbot
@@ -25,6 +27,10 @@ type SSLGenerator struct {
 
 func (s *SSLGenerator) Help() string {
 	return "implement me"
+}
+
+func (s *SSLGenerator) Synopsis() string {
+	return `This tool just acts as a proxy to the certbot project. The resulting artifacts (certificates) will be used to update AWS Certificate Manager.`
 }
 
 func (s *SSLGenerator) Run(args []string) int {
@@ -81,23 +87,53 @@ func (s *SSLGenerator) Run(args []string) int {
 
 		s3BucketPttrn := "certbot-certificates-%s"
 		s3Bucket := fmt.Sprintf(s3BucketPttrn, awsAccntNo)
-		if err, ok := findOrCreateS3Bucket(sess, s3Bucket); ok {
-			s.Ui.Info("Bucket Found! Let's upload some Certs!")
-		} else {
+		if s3svc, err := findOrCreateS3Bucket(sess, s3Bucket); err != nil {
 			s.Ui.Error(err.Error())
-			return 1
+		} else {
+			if s.uploadCertificatesToS3(s3svc, s3Bucket); err != nil {
+				s.Ui.Error(err.Error())
+				return 1
+			}
 		}
 	}
 
 	return 0
 }
 
-func (s *SSLGenerator) Synopsis() string {
-	return `This tool just acts as a proxy to the certbot project. The resulting artifacts (certificates) will be used to update AWS Certificate Manager.`
+func (s *SSLGenerator) uploadCertificatesToS3(s3svc *s3.S3, bucket string) error {
+	p := certbot.OutfilePath
+	uploader := s3manager.NewUploaderWithClient(s3svc)
+	err := filepath.Walk(p, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			upInput := &s3manager.UploadInput{
+				Bucket: aws.String(bucket),
+				Key:    aws.String(strings.TrimPrefix(path, p)),
+				Body:   f,
+			}
+			result, err := uploader.Upload(upInput, func(uploader *s3manager.Uploader) {})
+			if err != nil {
+				return err
+			}
+			s.Ui.Info(fmt.Sprintf("file uploaded to, %s", result.Location))
+			f.Close()
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // AWS Helpers
-func findOrCreateS3Bucket(sess *session.Session, bucket string) (error, bool) {
+func findOrCreateS3Bucket(sess *session.Session, bucket string) (*s3.S3, error) {
 	s3svc := s3.New(sess)
 	s3Input := &s3.HeadBucketInput{
 		Bucket: aws.String(bucket),
@@ -113,15 +149,15 @@ func findOrCreateS3Bucket(sess *session.Session, bucket string) (error, bool) {
 			case s3.ErrCodeNoSuchBucket, "NotFound":
 				return createS3Bucket(s3svc, bucket)
 			default:
-				return aerr, false
+				return nil, aerr
 			}
 		}
 	}
 
-	return nil, true
+	return s3svc, nil
 }
 
-func createS3Bucket(s3svc *s3.S3, bucket string) (error, bool) {
+func createS3Bucket(s3svc *s3.S3, bucket string) (*s3.S3, error) {
 	s3Input := &s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 	}
@@ -131,15 +167,15 @@ func createS3Bucket(s3svc *s3.S3, bucket string) (error, bool) {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case s3.ErrCodeBucketAlreadyExists:
-				return aerr, false
+				return nil, aerr
 			case s3.ErrCodeBucketAlreadyOwnedByYou:
-				return nil, true
+				return s3svc, nil
 			default:
-				return aerr, false
+				return nil, aerr
 			}
 		} else {
-			return err, false
+			return nil, err
 		}
 	}
-	return nil, true
+	return s3svc, nil
 }
