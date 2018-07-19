@@ -1,0 +1,25 @@
+[
+  {
+    "name": "go-gen-ssl",
+    "image": "dsalazar32/go-gen-ssl:latest",
+    "cpu": 10,
+    "memory": 100,
+    "entrypoint": [ "go-gen-ssl" ],
+    "command": [
+      "generate",
+      "-email", 
+      "dsalazar@iomediums.com",
+      "-d", 
+      "iomediums.com",
+      "-s3"
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/go-gen-ssl/logs",
+        "awslogs-region": "us-east-1",
+        "awslogs-stream-prefix": "go-gen-ssl"
+      }
+    }
+  }
+]
