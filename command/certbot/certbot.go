@@ -5,6 +5,12 @@ import (
 	"github.com/dsalazar32/go-gen-ssl/command/utils"
 	"os"
 	"strings"
+	"io/ioutil"
+	"path/filepath"
+	"log"
+	"crypto/x509"
+	"encoding/pem"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -105,4 +111,48 @@ func (c *Certbot) SetCertbotFlag(k string, v interface{}) {
 		cf = certbotFlag{strings.Join(d, " "), ""}
 	}
 	c.CertbotFlags = append(c.CertbotFlags, cf)
+}
+
+// GetCertificateExpiry returns the expiration date less `l` days
+func (c *Certbot) GetCertificateExpiry(d string, l int) (string, error) {
+	cnames := []string{"cert1", "chain1"}
+	certs := make(map[string]string)
+	cronExp := "cron(0 12 %d %d ? %d)"
+	for _, cname := range cnames {
+		f, err := ioutil.ReadFile(filepath.Join("/", OutfilePath, d, cname))
+		if err != nil {
+			log.Fatal(err)
+		}
+		certs[cname] = string(f)
+	}
+
+	cp := x509.NewCertPool()
+	if ok := cp.AppendCertsFromPEM([]byte(certs["chain1"])); !ok {
+		return "", errors.New("failed to parse root certificate")
+	}
+
+	b, _ := pem.Decode([]byte(certs["cert1"]))
+	if b == nil {
+		return "", errors.New("failed to parse certificate PEM")
+	}
+
+	cert, err := x509.ParseCertificate(b.Bytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse certificates: %v", err.Error())
+	}
+
+	opts := x509.VerifyOptions{
+		DNSName: d,
+		Roots: cp,
+	}
+	if _, err := cert.Verify(opts); err != nil {
+		return "", err
+	}
+
+	exp := cert.NotAfter
+	if l != 0 {
+		exp = exp.AddDate(0, 0, -l)
+	}
+
+	return fmt.Sprintf(cronExp, exp.Day(), exp.Month(), exp.Year()), nil
 }

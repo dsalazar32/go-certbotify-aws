@@ -7,11 +7,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/dsalazar32/go-gen-ssl/command/certbot"
 	"os"
 	"path/filepath"
 	"strings"
+	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go/service/cloudwatchevents"
 )
 
 // This just acts as a proxy to the certbot project.
@@ -36,15 +37,18 @@ func (s *SSLGenerator) Synopsis() string {
 func (s *SSLGenerator) Run(args []string) int {
 
 	var (
-		domainsFlag certbot.Domains
-		emailFlag   string
-		s3Flag      bool
+		domainsFlag    certbot.Domains
+		emailFlag      string
+		s3Flag         bool
+		cloudwatchFlag bool
 	)
 
 	f := s.Meta.flagSet("SSLGenerator")
 	f.Var(&domainsFlag, "d", "Comma-separated list of domains to obtain a certificate for")
 	f.StringVar(&emailFlag, "email", "", "Email address for important account notifications")
 	f.BoolVar(&s3Flag, "s3", false, "Target S3 bucket to upload generated certificates to")
+	f.BoolVar(&cloudwatchFlag, "auto-renew", false, "Creates Cloudwatch rule to renew cert when "+
+		"nearing its expiration date")
 	if err := f.Parse(args); err != nil {
 		return 1
 	}
@@ -64,36 +68,63 @@ func (s *SSLGenerator) Run(args []string) int {
 
 	// TODO: If any of these flags are set s3, ssl-manager
 	// TODO: Create bucket for certificates to land in `accountno_certbot_certificates/domain/date/`
-	if !s.Certbot.Test && s3Flag {
-		sess := session.Must(session.NewSession())
+	if !s.Certbot.Test {
+		var (
+			sess       *session.Session
+			awsAccntNo string
+		)
 
-		// Get callers aws account number to use for unique naming of resources. In this case
-		// we'll assume that a bucket prefixed with the caller's account number will is unique.
-		stsSvc := sts.New(sess)
-		stsInput := &sts.GetCallerIdentityInput{}
-		stsOut, err := stsSvc.GetCallerIdentity(stsInput)
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				default:
-					s.Ui.Error(aerr.Error())
-				}
-			} else {
-				s.Ui.Error(err.Error())
-			}
-			return 1
+		if s3Flag || cloudwatchFlag {
+			sess = session.Must(session.NewSession())
 		}
-		awsAccntNo := *stsOut.Account
 
-		s3BucketPttrn := "certbot-certificates-%s"
-		s3Bucket := fmt.Sprintf(s3BucketPttrn, awsAccntNo)
-		if s3svc, err := findOrCreateS3Bucket(sess, s3Bucket); err != nil {
-			s.Ui.Error(err.Error())
-		} else {
-			if s.uploadCertificatesToS3(s3svc, s3Bucket); err != nil {
-				s.Ui.Error(err.Error())
+		if s3Flag {
+			// Get callers aws account number to use for unique naming of resources. In this case
+			// we'll assume that a bucket prefixed with the caller's account number will is unique.
+			stsSvc := sts.New(sess)
+			stsInput := &sts.GetCallerIdentityInput{}
+			stsOut, err := stsSvc.GetCallerIdentity(stsInput)
+			if err != nil {
+				if aerr, ok := err.(awserr.Error); ok {
+					switch aerr.Code() {
+					default:
+						s.Ui.Error(aerr.Error())
+					}
+				} else {
+					s.Ui.Error(err.Error())
+				}
 				return 1
 			}
+			awsAccntNo := *stsOut.Account
+
+			s3BucketPttrn := "certbot-certificates-%s"
+			s3Bucket := fmt.Sprintf(s3BucketPttrn, awsAccntNo)
+			if s3svc, err := findOrCreateS3Bucket(sess, s3Bucket); err != nil {
+				s.Ui.Error(err.Error())
+			} else {
+				if s.uploadCertificatesToS3(s3svc, s3Bucket); err != nil {
+					s.Ui.Error(err.Error())
+					return 1
+				}
+			}
+		}
+
+		if cloudwatchFlag {
+			cron, err := s.Certbot.GetCertificateExpiry("iomediums.com", 1)
+			if err != nil {
+				s.Ui.Error(err.Error())
+			}
+
+			cweRulePattern := "certbot-cloudwatch-%s"
+			cweSvc := cloudwatchevents.New(sess)
+			cweInput := &cloudwatchevents.PutRuleInput{
+				Name:               aws.String(fmt.Sprintf(cweRulePattern, awsAccntNo)),
+				Description:        aws.String("Watch ensures that certificates auto renew prior to them expiring"),
+				RoleArn:            aws.String("arn:aws:iam::728160576949:role/ECSEventsRole"),
+				ScheduleExpression: aws.String(cron),
+				State:              aws.String("enabled"),
+			}
+			pro, err := cweSvc.PutRule(cweInput)
 		}
 	}
 
