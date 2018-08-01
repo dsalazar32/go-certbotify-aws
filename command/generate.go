@@ -5,14 +5,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatchevents"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/dsalazar32/go-gen-ssl/command/certbot"
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/aws/aws-sdk-go/service/cloudwatchevents"
 )
 
 // This just acts as a proxy to the certbot project.
@@ -66,21 +66,9 @@ func (s *SSLGenerator) Run(args []string) int {
 		s.Ui.Info(s.Certbot.CommandString())
 	}
 
-	// TODO: If any of these flags are set s3, ssl-manager
-	// TODO: Create bucket for certificates to land in `accountno_certbot_certificates/domain/date/`
 	if !s.Certbot.Test {
-		var (
-			sess       *session.Session
-			awsAccntNo string
-		)
-
 		if s3Flag || cloudwatchFlag {
-			sess = session.Must(session.NewSession())
-		}
-
-		if s3Flag {
-			// Get callers aws account number to use for unique naming of resources. In this case
-			// we'll assume that a bucket prefixed with the caller's account number will is unique.
+			sess := session.Must(session.NewSession())
 			stsSvc := sts.New(sess)
 			stsInput := &sts.GetCallerIdentityInput{}
 			stsOut, err := stsSvc.GetCallerIdentity(stsInput)
@@ -97,34 +85,64 @@ func (s *SSLGenerator) Run(args []string) int {
 			}
 			awsAccntNo := *stsOut.Account
 
-			s3BucketPttrn := "certbot-certificates-%s"
-			s3Bucket := fmt.Sprintf(s3BucketPttrn, awsAccntNo)
-			if s3svc, err := findOrCreateS3Bucket(sess, s3Bucket); err != nil {
-				s.Ui.Error(err.Error())
-			} else {
-				if s.uploadCertificatesToS3(s3svc, s3Bucket); err != nil {
+			if s3Flag {
+				// Get callers aws account number to use for unique naming of resources. In this case
+				// we'll assume that a bucket prefixed with the caller's account number will is unique.
+				s3BucketPttrn := "certbot-certificates-%s"
+				s3Bucket := fmt.Sprintf(s3BucketPttrn, awsAccntNo)
+				if s3svc, err := findOrCreateS3Bucket(sess, s3Bucket); err != nil {
 					s.Ui.Error(err.Error())
-					return 1
+				} else {
+					if s.uploadCertificatesToS3(s3svc, s3Bucket); err != nil {
+						s.Ui.Error(err.Error())
+						return 1
+					}
 				}
 			}
-		}
 
-		if cloudwatchFlag {
-			cron, err := s.Certbot.GetCertificateExpiry("iomediums.com", 1)
-			if err != nil {
-				s.Ui.Error(err.Error())
-			}
+			if cloudwatchFlag {
+				cron, err := s.Certbot.GetCertificateExpiry("iomediums.com", 1)
+				if err != nil {
+					s.Ui.Error(err.Error())
+				}
 
-			cweRulePattern := "certbot-cloudwatch-%s"
-			cweSvc := cloudwatchevents.New(sess)
-			cweInput := &cloudwatchevents.PutRuleInput{
-				Name:               aws.String(fmt.Sprintf(cweRulePattern, awsAccntNo)),
-				Description:        aws.String("Watch ensures that certificates auto renew prior to them expiring"),
-				RoleArn:            aws.String("arn:aws:iam::728160576949:role/ECSEventsRole"),
-				ScheduleExpression: aws.String(cron),
-				State:              aws.String("enabled"),
+				cweRulePattern := "certbot-cloudwatch-%s"
+				cweSvc := cloudwatchevents.New(sess)
+				ruleName := fmt.Sprintf(cweRulePattern, awsAccntNo)
+				cweInput := &cloudwatchevents.PutRuleInput{
+					Name:               aws.String(ruleName),
+					Description:        aws.String("Watch ensures that certificates auto renew prior to them expiring"),
+					RoleArn:            aws.String(fmt.Sprintf("arn:aws:iam::%s:role/ECSEventsRole", awsAccntNo)),
+					ScheduleExpression: aws.String(cron),
+					State:              aws.String(cloudwatchevents.RuleStateEnabled),
+				}
+				pro, err := cweSvc.PutRule(cweInput)
+				if err != nil {
+					s.Ui.Error(err.Error())
+				}
+				s.Ui.Info(pro.GoString())
+
+				cweTrgInput := &cloudwatchevents.PutTargetsInput{
+					Rule: aws.String(ruleName),
+					Targets: []*cloudwatchevents.Target{
+						{
+							Id:      aws.String("go-gen-ssl"),
+							Arn:     aws.String(fmt.Sprintf("arn:aws:ecs:us-east-1:%s:cluster/automata", awsAccntNo)),
+							RoleArn: aws.String(fmt.Sprintf("arn:aws:iam::%s:role/ECSTaskExecutionRole", awsAccntNo)),
+							EcsParameters: &cloudwatchevents.EcsParameters{
+								TaskCount:         aws.Int64(1),
+								TaskDefinitionArn: aws.String(fmt.Sprintf("arn:aws:ecs:us-east-1:%s:task-definition/go-gen-ssl", awsAccntNo)),
+							},
+						},
+					},
+				}
+
+				tgt, err := cweSvc.PutTargets(cweTrgInput)
+				if err != nil {
+					s.Ui.Error(err.Error())
+				}
+				s.Ui.Info(tgt.GoString())
 			}
-			pro, err := cweSvc.PutRule(cweInput)
 		}
 	}
 
