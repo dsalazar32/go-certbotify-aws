@@ -18,8 +18,8 @@ import (
 // This just acts as a proxy to the certbot project.
 // The resulting certificates will then be handed off to
 // logic that will interact with AWS iam certificate manager.
-// TODO: Have post processing of generated cert be flag driven.
-// TODO: Nice to have would be a DNS host name validator
+// TODO: Create aws utility in utils folder
+// TODO: Remove hardcoded values for a better solution
 type SSLGenerator struct {
 	Certbot certbot.Certbot
 
@@ -101,7 +101,11 @@ func (s *SSLGenerator) Run(args []string) int {
 			}
 
 			if cloudwatchFlag {
-				cron, err := s.Certbot.GetCertificateExpiry("iomediums.com", 1)
+
+				// The assumption here is that you only need to pass one domain `domainsFlag[0]`
+				// from the collection.  Since in theory they all generated certs at the same time they
+				// all should have the same expiry.
+				cron, err := s.Certbot.GetCertificateExpiry(domainsFlag[0], 1)
 				if err != nil {
 					s.Ui.Error(err.Error())
 				}

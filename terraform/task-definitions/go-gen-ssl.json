@@ -11,7 +11,8 @@
       "dsalazar@iomediums.com",
       "-d", 
       "iomediums.com",
-      "-s3"
+      "-s3",
+      "-auto-renew"
     ],
     "logConfiguration": {
       "logDriver": "awslogs",
