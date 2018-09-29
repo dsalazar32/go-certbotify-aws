@@ -1,32 +1,5 @@
-resource "aws_iam_role_policy" "certbot-cloudwatchevents-policy" {
-  name = "ECSEventsPolicy"
-  role = "${aws_iam_role.certbot-cloudwatchevents-role.id}"
-
-  policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "ecs:RunTask"
-            ],
-            "Resource": [
-                "*"
-            ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": "iam:PassRole",
-            "Resource": [
-                "arn:aws:iam::728160576949:role/ECSTaskExecutionRole"
-            ]
-        }
-    ]
-}
-EOF
-}
-
+# TODO: Work on task execution role
+# Follow manual setup in `ECSTaskExecutionRole`
 resource "aws_iam_role" "certbot-cloudwatchevents-role" {
   name = "ECSEventsRole"
 
@@ -45,4 +18,9 @@ resource "aws_iam_role" "certbot-cloudwatchevents-role" {
   ]
 }
 EOF
+}
+
+resource "aws_iam_role_policy_attachment" "certbot-execution-policy-attach" {
+  role       = "${aws_iam_role.certbot-cloudwatchevents-role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceEventsRole"
 }

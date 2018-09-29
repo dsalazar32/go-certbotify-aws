@@ -5,6 +5,16 @@
     "cpu": 10,
     "memory": 100,
     "entrypoint": [ "go-gen-ssl" ],
+    "environment": [
+      {
+        "name": "AWS_REGION",
+        "value": "us-east-1"
+      },
+      {
+        "name": "AWS_ECS_CLUSTER_NAME",
+        "value": "Automata"
+      }
+    ],
     "command": [
       "generate",
       "-email", 
@@ -18,8 +28,7 @@
       "logDriver": "awslogs",
       "options": {
         "awslogs-group": "/go-gen-ssl/logs",
-        "awslogs-region": "us-east-1",
-        "awslogs-stream-prefix": "go-gen-ssl"
+        "awslogs-region": "us-east-1"
       }
     }
   }
