@@ -117,7 +117,7 @@ func (c *Certbot) SetCertbotFlag(k string, v interface{}) {
 func (c *Certbot) GetCertificateExpiry(d string, l int) (string, error) {
 	cn := []string{"cert1.pem", "chain1.pem"}
 	certs := make(map[string]string)
-	cronExp := "cron(0 12 %d %d ? %d)"
+	cronExp := "cron(0 5 %d %d ? %d)"
 	for _, cert := range cn {
 		f, err := ioutil.ReadFile(filepath.Join("/", OutfilePath, d, cert))
 		if err != nil {

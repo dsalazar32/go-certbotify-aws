@@ -19,7 +19,7 @@ import (
 // The resulting certificates will then be handed off to
 // logic that will interact with AWS iam certificate manager.
 // TODO: Create aws utility in utils folder
-// TODO: Remove hardcoded values for a better solution
+// TODO: See about iterating domains and creating cloudwatch event crons for each
 type SSLGenerator struct {
 	Certbot certbot.Certbot
 
@@ -34,6 +34,12 @@ func (s *SSLGenerator) Synopsis() string {
 	return `This tool just acts as a proxy to the certbot project. The resulting artifacts (certificates) will be used to update AWS Certificate Manager.`
 }
 
+const (
+	awsEcsArnFmt     = "arn:aws:ecs:%s:%s:cluster/%s"
+	awsRoleArnFmt    = "arn:aws:iam::%s:role/ECSEventsRole"
+	awsEcsTaskArnFmt = "arn:aws:ecs:%s:%s:task-definition/go-gen-ssl"
+)
+
 func (s *SSLGenerator) Run(args []string) int {
 
 	var (
@@ -41,6 +47,8 @@ func (s *SSLGenerator) Run(args []string) int {
 		emailFlag      string
 		s3Flag         bool
 		cloudwatchFlag bool
+		awsRegion      = os.Getenv("AWS_REGION")
+		awsECSCName    = os.Getenv("AWS_ECS_CLUSTER_NAME")
 	)
 
 	f := s.Meta.flagSet("SSLGenerator")
@@ -100,6 +108,8 @@ func (s *SSLGenerator) Run(args []string) int {
 				}
 			}
 
+			// TODO: Unforuntately cloudwatch events do not support fargate.
+			// Look to either providing a mean to interact with fargate or only support EC2 based cluster.
 			if cloudwatchFlag {
 
 				// The assumption here is that you only need to pass one domain `domainsFlag[0]`
@@ -116,7 +126,6 @@ func (s *SSLGenerator) Run(args []string) int {
 				cweInput := &cloudwatchevents.PutRuleInput{
 					Name:               aws.String(ruleName),
 					Description:        aws.String("Watch ensures that certificates auto renew prior to them expiring"),
-					RoleArn:            aws.String(fmt.Sprintf("arn:aws:iam::%s:role/ECSEventsRole", awsAccntNo)),
 					ScheduleExpression: aws.String(cron),
 					State:              aws.String(cloudwatchevents.RuleStateEnabled),
 				}
@@ -131,11 +140,11 @@ func (s *SSLGenerator) Run(args []string) int {
 					Targets: []*cloudwatchevents.Target{
 						{
 							Id:      aws.String("go-gen-ssl"),
-							Arn:     aws.String(fmt.Sprintf("arn:aws:ecs:us-east-1:%s:cluster/automata", awsAccntNo)),
-							RoleArn: aws.String(fmt.Sprintf("arn:aws:iam::%s:role/ECSTaskExecutionRole", awsAccntNo)),
+							Arn:     aws.String(fmt.Sprintf(awsEcsArnFmt, awsRegion, awsAccntNo, awsECSCName)),
+							RoleArn: aws.String(fmt.Sprintf(awsRoleArnFmt, awsAccntNo)),
 							EcsParameters: &cloudwatchevents.EcsParameters{
 								TaskCount:         aws.Int64(1),
-								TaskDefinitionArn: aws.String(fmt.Sprintf("arn:aws:ecs:us-east-1:%s:task-definition/go-gen-ssl", awsAccntNo)),
+								TaskDefinitionArn: aws.String(fmt.Sprintf(awsEcsTaskArnFmt, awsRegion, awsAccntNo)),
 							},
 						},
 					},
