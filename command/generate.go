@@ -36,7 +36,7 @@ func (s *SSLGenerator) Synopsis() string {
 
 const (
 	awsEcsArnFmt     = "arn:aws:ecs:%s:%s:cluster/%s"
-	awsRoleArnFmt    = "arn:aws:iam::%s:role/ECSEventsRole"
+	awsRoleArnFmt    = "arn:aws:iam::%s:role/certbot-ECSEventsRole"
 	awsEcsTaskArnFmt = "arn:aws:ecs:%s:%s:task-definition/go-gen-ssl"
 )
 
@@ -120,9 +120,9 @@ func (s *SSLGenerator) Run(args []string) int {
 					s.Ui.Error(err.Error())
 				}
 
-				cweRulePattern := "certbot-cloudwatch-%s"
+				cweRulePattern := "certbot-cloudwatch-%s-%s"
 				cweSvc := cloudwatchevents.New(sess)
-				ruleName := fmt.Sprintf(cweRulePattern, awsAccntNo)
+				ruleName := fmt.Sprintf(cweRulePattern, awsAccntNo, domainsFlag[0])
 				cweInput := &cloudwatchevents.PutRuleInput{
 					Name:               aws.String(ruleName),
 					Description:        aws.String("Watch ensures that certificates auto renew prior to them expiring"),
@@ -135,6 +135,9 @@ func (s *SSLGenerator) Run(args []string) int {
 				}
 				s.Ui.Info(pro.GoString())
 
+				// TODO: Need to support in tying events to task definitions dynamically.
+				// Provide the environment variable that will do this.
+				// go-gen-ssl-iomediums.com
 				cweTrgInput := &cloudwatchevents.PutTargetsInput{
 					Rule: aws.String(ruleName),
 					Targets: []*cloudwatchevents.Target{

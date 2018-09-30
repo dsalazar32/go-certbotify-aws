@@ -27,7 +27,7 @@
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
-        "awslogs-group": "/go-gen-ssl/logs",
+        "awslogs-group": "/dsalazar32/go-gen-ssl/logs",
         "awslogs-region": "us-east-1"
       }
     }
