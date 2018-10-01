@@ -37,7 +37,9 @@ func (s *SSLGenerator) Synopsis() string {
 const (
 	awsEcsArnFmt     = "arn:aws:ecs:%s:%s:cluster/%s"
 	awsRoleArnFmt    = "arn:aws:iam::%s:role/certbot-ECSEventsRole"
-	awsEcsTaskArnFmt = "arn:aws:ecs:%s:%s:task-definition/go-gen-ssl"
+	awsEcsTaskArnFmt = "arn:aws:ecs:%s:%s:task-definition/%s"
+	s3BucketFmt      = "certbot-certificates-%s"
+	cweRuleFmt       = "certbot-cloudwatch-%s-%s"
 )
 
 func (s *SSLGenerator) Run(args []string) int {
@@ -49,6 +51,7 @@ func (s *SSLGenerator) Run(args []string) int {
 		cloudwatchFlag bool
 		awsRegion      = os.Getenv("AWS_REGION")
 		awsECSCName    = os.Getenv("AWS_ECS_CLUSTER_NAME")
+		awsECSTaskName = os.Getenv("AWS_ECS_TASK_NAME")
 	)
 
 	f := s.Meta.flagSet("SSLGenerator")
@@ -96,8 +99,7 @@ func (s *SSLGenerator) Run(args []string) int {
 			if s3Flag {
 				// Get callers aws account number to use for unique naming of resources. In this case
 				// we'll assume that a bucket prefixed with the caller's account number will is unique.
-				s3BucketPttrn := "certbot-certificates-%s"
-				s3Bucket := fmt.Sprintf(s3BucketPttrn, awsAccntNo)
+				s3Bucket := fmt.Sprintf(s3BucketFmt, awsAccntNo)
 				if s3svc, err := findOrCreateS3Bucket(sess, s3Bucket); err != nil {
 					s.Ui.Error(err.Error())
 				} else {
@@ -120,9 +122,8 @@ func (s *SSLGenerator) Run(args []string) int {
 					s.Ui.Error(err.Error())
 				}
 
-				cweRulePattern := "certbot-cloudwatch-%s-%s"
 				cweSvc := cloudwatchevents.New(sess)
-				ruleName := fmt.Sprintf(cweRulePattern, awsAccntNo, domainsFlag[0])
+				ruleName := fmt.Sprintf(cweRuleFmt, awsAccntNo, domainsFlag[0])
 				cweInput := &cloudwatchevents.PutRuleInput{
 					Name:               aws.String(ruleName),
 					Description:        aws.String("Watch ensures that certificates auto renew prior to them expiring"),
@@ -135,19 +136,16 @@ func (s *SSLGenerator) Run(args []string) int {
 				}
 				s.Ui.Info(pro.GoString())
 
-				// TODO: Need to support in tying events to task definitions dynamically.
-				// Provide the environment variable that will do this.
-				// go-gen-ssl-iomediums.com
 				cweTrgInput := &cloudwatchevents.PutTargetsInput{
 					Rule: aws.String(ruleName),
 					Targets: []*cloudwatchevents.Target{
 						{
-							Id:      aws.String("go-gen-ssl"),
+							Id:      aws.String(awsECSTaskName),
 							Arn:     aws.String(fmt.Sprintf(awsEcsArnFmt, awsRegion, awsAccntNo, awsECSCName)),
 							RoleArn: aws.String(fmt.Sprintf(awsRoleArnFmt, awsAccntNo)),
 							EcsParameters: &cloudwatchevents.EcsParameters{
 								TaskCount:         aws.Int64(1),
-								TaskDefinitionArn: aws.String(fmt.Sprintf(awsEcsTaskArnFmt, awsRegion, awsAccntNo)),
+								TaskDefinitionArn: aws.String(fmt.Sprintf(awsEcsTaskArnFmt, awsRegion, awsAccntNo, awsECSTaskName)),
 							},
 						},
 					},
