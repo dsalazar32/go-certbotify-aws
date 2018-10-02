@@ -119,7 +119,7 @@ func (c *Certbot) GetCertificateExpiry(d string, l int) (string, error) {
 	certs := make(map[string]string)
 	cronExp := "cron(0 5 %d %d ? %d)"
 	for _, cert := range cn {
-		f, err := ioutil.ReadFile(filepath.Join("/", OutfilePath, d, cert))
+		f, err := ioutil.ReadFile(filepath.Join("/", OutfilePath, strings.TrimPrefix(d, "*."), cert))
 		if err != nil {
 			log.Fatal(err)
 		}
