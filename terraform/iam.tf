@@ -55,7 +55,7 @@ resource "aws_iam_role_policy" "certbot-ecs-taskexecution-policy" {
         "logs:PutLogEvents"
       ],
       "Effect": "Allow",
-      "Resource": "arn:aws:ecs:${var.aws_region}:${var.aws_account_number}:task-definition/${var.aws_task_definition}"
+      "Resource": "arn:aws:ecs:${var.aws_region}:${var.aws_account_number}:task-definition/${var.aws_task_definition}*"
     },
     {
       "Sid": "eventRolePolicy",

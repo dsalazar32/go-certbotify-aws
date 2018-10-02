@@ -65,6 +65,7 @@ func (s *SSLGenerator) Run(args []string) int {
 	}
 
 	// These will be the default flags that will be proxied to the certbot cli.
+	s.Certbot.SetCertbotFlag("--server", "https://acme-v02.api.letsencrypt.org/directory")
 	s.Certbot.SetCertbotFlag("--email", emailFlag)
 	s.Certbot.SetCertbotFlag("-d", domainsFlag)
 
@@ -117,13 +118,14 @@ func (s *SSLGenerator) Run(args []string) int {
 				// The assumption here is that you only need to pass one domain `domainsFlag[0]`
 				// from the collection.  Since in theory they all generated certs at the same time they
 				// all should have the same expiry.
-				cron, err := s.Certbot.GetCertificateExpiry(domainsFlag[0], 1)
+				domain := strings.TrimPrefix(domainsFlag[0], "*.")
+				cron, err := s.Certbot.GetCertificateExpiry(domain, 1)
 				if err != nil {
 					s.Ui.Error(err.Error())
 				}
 
 				cweSvc := cloudwatchevents.New(sess)
-				ruleName := fmt.Sprintf(cweRuleFmt, awsAccntNo, domainsFlag[0])
+				ruleName := fmt.Sprintf(cweRuleFmt, awsAccntNo, domain)
 				cweInput := &cloudwatchevents.PutRuleInput{
 					Name:               aws.String(ruleName),
 					Description:        aws.String("Watch ensures that certificates auto renew prior to them expiring"),
