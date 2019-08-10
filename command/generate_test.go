@@ -22,7 +22,7 @@ func TestCertbotCommand_CommandString(t *testing.T) {
 				"-d",
 				"www.dsalazar.io",
 			},
-			"certbot certonly -n --dns-route53 --agree-tos --email me@dsalazar.io -d dsalazar.io -d www.dsalazar.io",
+			"certbot certonly -n --dns-route53 --agree-tos --server https://acme-v02.api.letsencrypt.org/directory --email me@dsalazar.io -d dsalazar.io -d www.dsalazar.io",
 		},
 		{
 			[]string{
@@ -31,21 +31,21 @@ func TestCertbotCommand_CommandString(t *testing.T) {
 				"-d",
 				"www.dsalazar.io",
 			},
-			"certbot certonly -n --dns-route53 --agree-tos -d dsalazar.io -d www.dsalazar.io",
+			"certbot certonly -n --dns-route53 --agree-tos --server https://acme-v02.api.letsencrypt.org/directory -d dsalazar.io -d www.dsalazar.io",
 		},
 		{
 			[]string{
 				"-email",
 				"me@dsalazar.io",
 			},
-			"certbot certonly -n --dns-route53 --agree-tos --email me@dsalazar.io",
+			"certbot certonly -n --dns-route53 --agree-tos --server https://acme-v02.api.letsencrypt.org/directory --email me@dsalazar.io",
 		},
 		{
 			[]string{
 				"-email",
 				"me@dsalazar.io",
 			},
-			"certbot certonly -n --dns-route53 --agree-tos --email me@dsalazar.io",
+			"certbot certonly -n --dns-route53 --agree-tos --server https://acme-v02.api.letsencrypt.org/directory --email me@dsalazar.io",
 		},
 	}
 

@@ -11,7 +11,7 @@ func Commander(cwd string, eVars ...string) func(c string, output bool) ([]byte,
 		command.Env = append(os.Environ(), eVars...)
 		command.Stderr = os.Stderr
 		command.Dir = cwd
-		if output == true {
+		if output {
 			return command.Output()
 		}
 		if err := command.Run(); err != nil {
